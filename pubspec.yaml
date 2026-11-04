@@ -1,0 +1,28 @@
+name: store_version_check
+description: >-
+  Checks whether a newer version of your app is live on Google Play or the Apple App Store, with no native code,
+  no Play Core and no backend. Built to be testable on any build (debug, APK, TestFlight) via simulated store versions.
+version: 0.1.0
+repository: https://github.com/AbanoubFakheryMakram/store_version_check
+issue_tracker: https://github.com/AbanoubFakheryMakram/store_version_check/issues
+topics:
+  - app-update
+  - version-check
+  - app-store
+  - google-play
+
+environment:
+  sdk: ^3.6.0
+  flutter: '>=3.27.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  package_info_plus: '>=8.0.0 <10.0.0'
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  url_launcher: ^6.3.0
