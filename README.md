@@ -39,7 +39,7 @@ emulator all behave the same as production.
 
 ```yaml
 dependencies:
-  store_version_check: ^0.1.3
+  store_version_check: ^0.1.4
   url_launcher: ^6.3.0   # to open the store page
 ```
 
@@ -127,9 +127,11 @@ StoreVersionChecker.simulated(storeVersion: '1.0.0', currentVersionOverride: '1.
 
 // unit tests with your own HTTP responses
 StoreVersionChecker(
-  client: MockClient((_) async => http.Response('x[[["2.0.0"]]y', 200)),
+  // same structure as a Play page: the version followed by the minimum-SDK block
+  client: MockClient((_) async => http.Response('..."141":[[["2.0.0"]],[[[36]]]]...', 200)),
   currentVersionOverride: '1.0.0',
   platformOverride: TargetPlatform.android,
+  androidPackageName: 'com.example.app', // otherwise the installed package name is read (needs a real device)
 );
 ```
 

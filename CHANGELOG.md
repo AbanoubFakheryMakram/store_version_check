@@ -1,3 +1,8 @@
+## 0.1.4
+
+- README: the `MockClient` example now uses the current Play page structure (version followed by the minimum-SDK
+  block) and is covered by a test.
+
 ## 0.1.3
 
 - Docs: README now shows samples of the App Store lookup response and the Google Play page entry that are parsed
