@@ -6,8 +6,9 @@ class PlayStoreParser {
   const PlayStoreParser._();
 
   static final List<RegExp> _patterns = [
-    // current layout: the version sits alone in a nested array: [[["1.2.3"]]
-    RegExp(r'\[\[\["(\d+(?:\.\d+)+)"\]\]'),
+    // current layout: the version, followed by the minimum Android SDK block: [[["1.2.3"]],[[[36]],...
+    // The SDK block is required so an unrelated version-like array elsewhere on the page is never picked up.
+    RegExp(r'\[\[\["(\d+(?:\.\d+)+)"\]\],\[\[\[\d+\]\]'),
     // schema.org style field some layouts expose
     RegExp(r'"softwareVersion"\s*:\s*"(\d+(?:\.\d+)+)"'),
     // older layout: "Current Version" label followed by the number

@@ -65,6 +65,9 @@ switch (result.status) {
 
 ### 2. Once per app session (typical splash screen)
 
+"Session" means the **instance**: create one `StoreVersionChecker` for the app's lifetime (provider, singleton,
+long-lived service), not one per screen or per call, or each instance will do its own first check.
+
 ```dart
 class SplashManager {
   final _checker = StoreVersionChecker();   // one instance for the whole session
@@ -88,6 +91,9 @@ StoreVersionChecker(
   androidPackageName: 'com.company.app',
   iosBundleId: 'com.company.app.ios',
   countryCode: 'eg',                        // optional, defaults to the device locale
+  allowGlobalStorefrontFallback: true,      // iOS: if the app is not listed in that country, use the global
+                                            // version; false reports `unknown` instead
+  timeout: const Duration(seconds: 5),      // budget of the WHOLE check (including the fallback request)
 );
 ```
 
@@ -139,7 +145,7 @@ final checker = kDebugMode ? StoreVersionChecker.simulated(storeVersion: '99.0.0
 | Platform | Source | Reliability |
 |---|---|---|
 | iOS | `https://itunes.apple.com/lookup?bundleId=…&country=…` (Apple's public API; retried without country) | High |
-| Android | The public Google Play app page, parsed for the version (`PlayStoreParser`) | Medium: no official API exists |
+| Android | The public Google Play app page, parsed for the version (`PlayStoreParser`) | Medium: no official API exists. Tested against real page fixtures, plus a weekly CI canary that fails when Google changes the page |
 
 Versions are compared numerically segment by segment (`1.10.0 > 1.9.0`); `+build` numbers, pre-release tags and a
 leading `v` are ignored; `1.2` equals `1.2.0`.
@@ -156,6 +162,7 @@ leading `v` are ignored; `1.2` equals `1.2.0`.
 1. **Google Play has no official version API.** The Android check parses the Play web page. Google can change its
    markup at any time and the check will then return `unknown` until the parser is updated. Pin a version, use
    `onError` reporting, and treat `unknown` as "do not prompt".
+   A version that cannot be parsed (store or installed) is reported as `unknown`, never as "up to date".
 2. **Play may not serve the page** in some regions or to some networks (consent walls, rate limiting). Same
    outcome: `unknown`.
 3. **Store propagation lag.** The store can show a new version hours before every device can install it, so a

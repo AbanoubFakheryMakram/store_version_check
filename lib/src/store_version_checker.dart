@@ -31,6 +31,7 @@ class StoreVersionChecker {
     this.iosBundleId,
     this.countryCode,
     this.timeout = const Duration(seconds: 5),
+    this.allowGlobalStorefrontFallback = true,
     http.Client? client,
     this.currentVersionOverride,
     this.platformOverride,
@@ -55,6 +56,7 @@ class StoreVersionChecker {
   })  : _simulatedStoreVersion = storeVersion,
         countryCode = null,
         timeout = const Duration(seconds: 5),
+        allowGlobalStorefrontFallback = true,
         _client = null;
 
   /// Android application id to look up. Defaults to the installed package name.
@@ -67,8 +69,14 @@ class StoreVersionChecker {
   /// If the app is not listed there, the iOS lookup is retried without a country.
   final String? countryCode;
 
-  /// Applies to each network request. A slow network ends as [StoreVersionStatus.unknown], never a hang.
+  /// The time budget of the whole [check], including the iOS storefront fallback request. A slow network ends as
+  /// [StoreVersionStatus.unknown], never a hang.
   final Duration timeout;
+
+  /// iOS only. When the app is not listed in the user's storefront (`countryCode`), look it up without a country
+  /// instead of giving up. The version found then is the global one, which may not be installable in the user's
+  /// country yet; set this to `false` to report [StoreVersionStatus.unknown] in that case.
+  final bool allowGlobalStorefrontFallback;
 
   /// Overrides the installed version (mainly for tests). Defaults to `PackageInfo.version`.
   final String? currentVersionOverride;
@@ -90,8 +98,8 @@ class StoreVersionChecker {
 
   /// Runs [check] the first time it is called on this instance and returns `null` afterwards.
   ///
-  /// Keep one instance for the app's lifetime (a field of your splash manager, a provider, a singleton)
-  /// so the check happens once per app session.
+  /// "Session" means this instance: two instances each run their own first check. Keep ONE instance for the app's
+  /// lifetime (a provider, a singleton, a field of a long-lived service), never create it per screen or per call.
   Future<StoreVersionResult?> checkOncePerSession() async {
     if (_checkedThisSession) return null;
     _checkedThisSession = true;
@@ -103,9 +111,15 @@ class StoreVersionChecker {
     String? current;
     try {
       current = currentVersionOverride ?? (await PackageInfo.fromPlatform()).version;
+      if (!VersionComparator.isValid(current)) {
+        throw StoreVersionException('The installed version "$current" is not a comparable version.');
+      }
 
       final simulated = _simulatedStoreVersion;
       if (simulated != null) {
+        if (!VersionComparator.isValid(simulated)) {
+          throw StoreVersionException('The simulated store version "$simulated" is not a comparable version.');
+        }
         return StoreVersionResult(
           status: VersionComparator.isNewer(simulated, current)
               ? StoreVersionStatus.updateAvailable
@@ -117,9 +131,12 @@ class StoreVersionChecker {
         );
       }
 
-      final lookup = await _lookup();
+      final lookup = await _lookup().timeout(timeout);
       if (lookup == null) {
         throw const StoreVersionException('The store did not return a version for this app.');
+      }
+      if (!VersionComparator.isValid(lookup.version)) {
+        throw StoreVersionException('The store version "${lookup.version}" is not a comparable version.');
       }
       return StoreVersionResult(
         status: VersionComparator.isNewer(lookup.version, current)
@@ -130,9 +147,16 @@ class StoreVersionChecker {
         storeUrl: lookup.url,
       );
     } catch (error, stackTrace) {
-      onError?.call(error, stackTrace);
+      _report(error, stackTrace);
       return StoreVersionResult(status: StoreVersionStatus.unknown, currentVersion: current, error: error);
     }
+  }
+
+  /// A failing [onError] must never turn an unknown result into an exception.
+  void _report(Object error, StackTrace stackTrace) {
+    try {
+      onError?.call(error, stackTrace);
+    } catch (_) {}
   }
 
   TargetPlatform get _platform => platformOverride ?? defaultTargetPlatform;
@@ -169,8 +193,9 @@ class StoreVersionChecker {
 
   Future<({String version, String url})?> _appStoreLookup(String bundleId) async {
     final country = (countryCode ?? PlatformDispatcher.instance.locale.countryCode)?.toLowerCase();
-    // the country first (the app may only be listed in some storefronts), then a global lookup
-    for (final query in [if (country != null && country.isNotEmpty) '&country=$country', '']) {
+    final hasCountry = country != null && country.isNotEmpty;
+    // the country first (the app may only be listed in some storefronts), then, if allowed, a global lookup
+    for (final query in [if (hasCountry) '&country=$country', if (!hasCountry || allowGlobalStorefrontFallback) '']) {
       final response = await _get(Uri.parse('https://itunes.apple.com/lookup?bundleId=$bundleId$query'));
       if (response.statusCode != 200) continue;
       final json = jsonDecode(response.body);

@@ -23,6 +23,12 @@ void main() {
       expect(VersionComparator.isNewer('1.3.0+1', '1.2.9+99'), isTrue);
     });
 
+    test('isValid tells comparable versions from garbage', () {
+      expect(VersionComparator.isValid('1.2.3+4'), isTrue);
+      expect(VersionComparator.isValid('abc'), isFalse);
+      expect(VersionComparator.isValid(''), isFalse);
+    });
+
     test('unparseable input never reports an update', () {
       expect(VersionComparator.isNewer('abc', '1.0.0'), isFalse);
       expect(VersionComparator.isNewer('1.0.0', ''), isFalse);
@@ -30,12 +36,19 @@ void main() {
   });
 
   group('PlayStoreParser', () {
+    const sdkBlock = ',[[[36]],[[[29,"10"]]]]';
+
     test('reads the current layout', () {
-      expect(PlayStoreParser.parseVersion('x[[["1.4.2"]]y'), '1.4.2');
+      expect(PlayStoreParser.parseVersion('x[[["1.4.2"]]$sdkBlock'), '1.4.2');
     });
 
     test('reads a two segment version', () {
-      expect(PlayStoreParser.parseVersion('x[[["2.0"]]y'), '2.0');
+      expect(PlayStoreParser.parseVersion('x[[["2.0"]]$sdkBlock'), '2.0');
+    });
+
+    test('ignores an unrelated version-like array that is not followed by the SDK block', () {
+      expect(PlayStoreParser.parseVersion('{"x":[[["9.9.9"]],"other"]}'), isNull);
+      expect(PlayStoreParser.parseVersion('a[[["9.9.9"]]b a[[["1.0.1"]]$sdkBlock'), '1.0.1');
     });
 
     test('reads softwareVersion and the old layout', () {

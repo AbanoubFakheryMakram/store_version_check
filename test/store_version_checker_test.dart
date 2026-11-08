@@ -20,7 +20,7 @@ void main() {
   }
 
   test('Android: reports an update when Play has a higher version', () async {
-    final client = MockClient((_) async => http.Response('x[[["1.1.0"]]y', 200));
+    final client = MockClient((_) async => http.Response('x[[["1.1.0"]],[[[36]]]', 200));
     final result = await playChecker(client).check();
     expect(result.status, StoreVersionStatus.updateAvailable);
     expect(result.storeVersion, '1.1.0');
@@ -28,7 +28,7 @@ void main() {
   });
 
   test('Android: up to date when versions match', () async {
-    final client = MockClient((_) async => http.Response('x[[["1.0.0"]]y', 200));
+    final client = MockClient((_) async => http.Response('x[[["1.0.0"]],[[[36]]]', 200));
     expect((await playChecker(client).check()).status, StoreVersionStatus.upToDate);
   });
 
@@ -111,5 +111,82 @@ void main() {
     expect(await checker.checkOncePerSession(), isNotNull);
     expect(await checker.checkOncePerSession(), isNull);
     expect(checker.lastResult?.isUpdateAvailable, isTrue);
+  });
+
+  test('a throwing onError never turns unknown into an exception', () async {
+    final client = MockClient((_) async => http.Response('<html></html>', 200));
+    final checker = playChecker(client, onError: (_, __) => throw StateError('logger is broken'));
+    expect((await checker.check()).status, StoreVersionStatus.unknown);
+  });
+
+  test('an unparseable store version is unknown, not "up to date"', () async {
+    final client = MockClient((_) async => http.Response('{"softwareVersion":"1.x"}', 200));
+    // the parser only accepts numeric versions, so use the iOS path with a bad version to hit the comparator
+    final ios = StoreVersionChecker(
+      iosBundleId: 'com.example.app',
+      countryCode: 'eg',
+      currentVersionOverride: '1.0.0',
+      platformOverride: TargetPlatform.iOS,
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'resultCount': 1,
+            'results': [
+              {'version': 'abc'},
+            ],
+          }),
+          200,
+        ),
+      ),
+    );
+    expect((await ios.check()).status, StoreVersionStatus.unknown);
+    expect((await playChecker(client).check()).status, StoreVersionStatus.unknown);
+  });
+
+  test('an unparseable installed version is unknown', () async {
+    final checker = StoreVersionChecker.simulated(
+      storeVersion: '2.0.0',
+      currentVersionOverride: 'dev',
+      androidPackageName: 'com.example.app',
+      platformOverride: TargetPlatform.android,
+    );
+    expect((await checker.check()).status, StoreVersionStatus.unknown);
+  });
+
+  test('the timeout covers the whole check, including the iOS fallback request', () async {
+    // each request alone is faster than the timeout, the two together are not
+    final client = MockClient((_) => Future.delayed(const Duration(milliseconds: 120), () {
+          return http.Response(jsonEncode({'resultCount': 0, 'results': []}), 200);
+        }));
+    final checker = StoreVersionChecker(
+      iosBundleId: 'com.example.app',
+      countryCode: 'eg',
+      currentVersionOverride: '1.0.0',
+      platformOverride: TargetPlatform.iOS,
+      client: client,
+      timeout: const Duration(milliseconds: 200),
+    );
+    final watch = Stopwatch()..start();
+    final result = await checker.check();
+    expect(result.status, StoreVersionStatus.unknown);
+    expect(watch.elapsedMilliseconds, lessThan(320));
+  });
+
+  test('iOS: without the global fallback an unlisted storefront is unknown', () async {
+    final urls = <String>[];
+    final client = MockClient((request) async {
+      urls.add(request.url.toString());
+      return http.Response(jsonEncode({'resultCount': 0, 'results': []}), 200);
+    });
+    final checker = StoreVersionChecker(
+      iosBundleId: 'com.example.app',
+      countryCode: 'eg',
+      allowGlobalStorefrontFallback: false,
+      currentVersionOverride: '1.0.0',
+      platformOverride: TargetPlatform.iOS,
+      client: client,
+    );
+    expect((await checker.check()).status, StoreVersionStatus.unknown);
+    expect(urls.length, 1);
   });
 }

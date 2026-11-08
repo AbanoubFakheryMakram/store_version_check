@@ -15,6 +15,9 @@ class VersionComparator {
     return segments;
   }
 
+  /// Whether [version] has at least one numeric segment and can be compared.
+  static bool isValid(String version) => parse(version).isNotEmpty;
+
   /// Compares [a] to [b]: negative when [a] is older, zero when equal, positive when [a] is newer.
   /// Missing segments count as zero, so `1.2` equals `1.2.0`. Unparseable input compares as equal.
   static int compare(String a, String b) {

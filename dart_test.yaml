@@ -1,0 +1,3 @@
+tags:
+  live:
+    # hits the real Google Play; run by the scheduled workflow only
