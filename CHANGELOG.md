@@ -1,3 +1,7 @@
+## 0.1.2
+
+- README: removed a comparison row that overstated the difference with Play Core based packages.
+
 ## 0.1.1
 
 - Google Play: the version is now only accepted when followed by the minimum-SDK block, so an unrelated

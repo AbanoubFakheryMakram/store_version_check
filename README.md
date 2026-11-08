@@ -14,7 +14,6 @@ if (result.isUpdateAvailable) {
 
 | | `store_version_check` | Play Core based packages (e.g. `in_app_update`) |
 |---|---|---|
-| Works on **debug builds, APKs, TestFlight, CI artifacts** | Yes | No (Play-installed builds only) |
 | Works on **Android and iOS** with one API | Yes | Android only |
 | **Test the UI without publishing a release** | Yes, `StoreVersionChecker.simulated(...)` | Needs an old + a new build on a Play track |
 | Native setup / permissions | None | Play Core, Android only |
