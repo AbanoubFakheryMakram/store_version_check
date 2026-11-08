@@ -1,3 +1,12 @@
+## 0.1.3
+
+- Docs: README now shows samples of the App Store lookup response and the Google Play page entry that are parsed
+  (`doc/samples/`).
+- `timeout` now also covers reading the installed version (`PackageInfo`), so it bounds the entire `check()`.
+- README installation example updated to the current version.
+- Test fixtures and samples are now synthetic (mock ids and text, real structure) instead of trimmed real pages.
+- Removed the CI workflow and the live Google Play canary test.
+
 ## 0.1.2
 
 - README: removed a comparison row that overstated the difference with Play Core based packages.
@@ -13,7 +22,6 @@
 - New `allowGlobalStorefrontFallback` (iOS, default `true`): set it to `false` to report `unknown` when the app
   is not listed in the user's storefront instead of using the global version.
 - Clearer `checkOncePerSession` docs: "session" means the instance, keep one for the app's lifetime.
-- CI: format, analyze, tests, publish dry-run, plus a weekly canary against the real Google Play page.
 
 ## 0.1.0
 

@@ -69,7 +69,8 @@ class StoreVersionChecker {
   /// If the app is not listed there, the iOS lookup is retried without a country.
   final String? countryCode;
 
-  /// The time budget of the whole [check], including the iOS storefront fallback request. A slow network ends as
+  /// The time budget of the whole [check]: reading the installed version, the store request and the iOS storefront
+  /// fallback request. A slow network ends as
   /// [StoreVersionStatus.unknown], never a hang.
   final Duration timeout;
 
@@ -110,46 +111,52 @@ class StoreVersionChecker {
   Future<StoreVersionResult> check() async {
     String? current;
     try {
-      current = currentVersionOverride ?? (await PackageInfo.fromPlatform()).version;
-      if (!VersionComparator.isValid(current)) {
-        throw StoreVersionException('The installed version "$current" is not a comparable version.');
-      }
-
-      final simulated = _simulatedStoreVersion;
-      if (simulated != null) {
-        if (!VersionComparator.isValid(simulated)) {
-          throw StoreVersionException('The simulated store version "$simulated" is not a comparable version.');
-        }
-        return StoreVersionResult(
-          status: VersionComparator.isNewer(simulated, current)
-              ? StoreVersionStatus.updateAvailable
-              : StoreVersionStatus.upToDate,
-          currentVersion: current,
-          storeVersion: simulated,
-          storeUrl: await _storeUrl(),
-          simulated: true,
-        );
-      }
-
-      final lookup = await _lookup().timeout(timeout);
-      if (lookup == null) {
-        throw const StoreVersionException('The store did not return a version for this app.');
-      }
-      if (!VersionComparator.isValid(lookup.version)) {
-        throw StoreVersionException('The store version "${lookup.version}" is not a comparable version.');
-      }
-      return StoreVersionResult(
-        status: VersionComparator.isNewer(lookup.version, current)
-            ? StoreVersionStatus.updateAvailable
-            : StoreVersionStatus.upToDate,
-        currentVersion: current,
-        storeVersion: lookup.version,
-        storeUrl: lookup.url,
-      );
+      // the whole check (installed version lookup included) runs inside one time budget
+      return await _run((version) => current = version).timeout(timeout);
     } catch (error, stackTrace) {
       _report(error, stackTrace);
       return StoreVersionResult(status: StoreVersionStatus.unknown, currentVersion: current, error: error);
     }
+  }
+
+  Future<StoreVersionResult> _run(void Function(String version) onCurrentVersion) async {
+    final current = currentVersionOverride ?? (await PackageInfo.fromPlatform()).version;
+    onCurrentVersion(current);
+    if (!VersionComparator.isValid(current)) {
+      throw StoreVersionException('The installed version "$current" is not a comparable version.');
+    }
+
+    final simulated = _simulatedStoreVersion;
+    if (simulated != null) {
+      if (!VersionComparator.isValid(simulated)) {
+        throw StoreVersionException('The simulated store version "$simulated" is not a comparable version.');
+      }
+      return StoreVersionResult(
+        status: VersionComparator.isNewer(simulated, current)
+            ? StoreVersionStatus.updateAvailable
+            : StoreVersionStatus.upToDate,
+        currentVersion: current,
+        storeVersion: simulated,
+        storeUrl: await _storeUrl(),
+        simulated: true,
+      );
+    }
+
+    final lookup = await _lookup();
+    if (lookup == null) {
+      throw const StoreVersionException('The store did not return a version for this app.');
+    }
+    if (!VersionComparator.isValid(lookup.version)) {
+      throw StoreVersionException('The store version "${lookup.version}" is not a comparable version.');
+    }
+    return StoreVersionResult(
+      status: VersionComparator.isNewer(lookup.version, current)
+          ? StoreVersionStatus.updateAvailable
+          : StoreVersionStatus.upToDate,
+      currentVersion: current,
+      storeVersion: lookup.version,
+      storeUrl: lookup.url,
+    );
   }
 
   /// A failing [onError] must never turn an unknown result into an exception.

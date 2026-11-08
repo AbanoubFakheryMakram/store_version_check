@@ -2,7 +2,7 @@ name: store_version_check
 description: >-
   Checks whether a newer version of your app is live on Google Play or the Apple App Store, with no native code,
   no Play Core and no backend. Built to be testable on any build (debug, APK, TestFlight) via simulated store versions.
-version: 0.1.2
+version: 0.1.3
 repository: https://github.com/AbanoubFakheryMakram/store_version_check
 issue_tracker: https://github.com/AbanoubFakheryMakram/store_version_check/issues
 topics:

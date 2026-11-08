@@ -39,7 +39,7 @@ emulator all behave the same as production.
 
 ```yaml
 dependencies:
-  store_version_check: ^0.1.0
+  store_version_check: ^0.1.3
   url_launcher: ^6.3.0   # to open the store page
 ```
 
@@ -144,10 +144,43 @@ final checker = kDebugMode ? StoreVersionChecker.simulated(storeVersion: '99.0.0
 | Platform | Source | Reliability |
 |---|---|---|
 | iOS | `https://itunes.apple.com/lookup?bundleId=…&country=…` (Apple's public API; retried without country) | High |
-| Android | The public Google Play app page, parsed for the version (`PlayStoreParser`) | Medium: no official API exists. Tested against real page fixtures, plus a weekly CI canary that fails when Google changes the page |
+| Android | The public Google Play app page, parsed for the version (`PlayStoreParser`) | Medium: no official API exists. Tested against fixtures that follow the page structure |
 
 Versions are compared numerically segment by segment (`1.10.0 > 1.9.0`); `+build` numbers, pre-release tags and a
 leading `v` are ignored; `1.2` equals `1.2.0`.
+
+## What the package parses (samples)
+
+You can see exactly what data is read. Files are in [`doc/samples/`](doc/samples).
+
+**App Store** (`https://itunes.apple.com/lookup?bundleId=<id>&country=<cc>`), an official JSON API. Only `version` and
+`trackViewUrl` are used:
+
+```json
+{
+  "resultCount": 1,
+  "results": [
+    {
+      "bundleId": "com.example.app",
+      "trackViewUrl": "https://apps.apple.com/us/app/example-app/id1234567890",
+      "version": "1.3.0"
+    }
+  ]
+}
+```
+
+`resultCount: 0` means the app is not listed in that storefront (see `allowGlobalStorefrontFallback`).
+
+**Google Play** (`https://play.google.com/store/apps/details?id=<package>&hl=en`), an HTML page with no official API.
+Only this entry is read: the version, immediately followed by the minimum Android SDK block:
+
+```text
+..."141":[[["1.3.0"]],[[[36]],[[[29,"10"]]]]],"145":[null,[null,"Bug fixes..."]]...
+        └ version ┘    └ min SDK ┘
+```
+
+If the page does not contain this structure, the result is `unknown` (never a guessed version). Mock pages with the same
+structure used by the tests are in [`test/fixtures/`](test/fixtures).
 
 ## Benefits
 

@@ -1,0 +1,15 @@
+{
+  "resultCount": 1,
+  "results": [
+    {
+      "bundleId": "com.example.app",
+      "trackName": "Example App",
+      "trackId": 1234567890,
+      "trackViewUrl": "https://apps.apple.com/us/app/example-app/id1234567890",
+      "version": "1.3.0",
+      "currentVersionReleaseDate": "2026-01-01T10:00:00Z",
+      "minimumOsVersion": "16.0",
+      "releaseNotes": "Bug fixes and performance improvements."
+    }
+  ]
+}
